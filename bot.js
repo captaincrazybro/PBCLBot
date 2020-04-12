@@ -455,6 +455,8 @@ function addRoleAndCreateIfNotExists(user, roleName){
 
 function checkForNewReactions(user){
   
+  setInterval(() => {
+  
   bot.guilds.get("692395141427757067").channels.get("696452173604585562").messages.get("696452274309824582").reactions.forEach(reaction => {
     reaction.users.forEach(user => {
       switch(reaction.name){
@@ -510,6 +512,7 @@ function checkForNewReactions(user){
       }
     })
   })
+  }, 360);
   
 }
  
