@@ -433,20 +433,84 @@ function checkDate(date){
 
 function addRoleAndCreateIfNotExists(user, roleName){
 
-  let kitRole = message.guild.roles.find('name', roleName);
+  let guild = bot.guilds.get("guildId");
+  
+  let kitRole = guild.roles.find('name', roleName);
+  
+  if(guild.members.get(user.id).roles.get(kitRole.id)) return;
 
   if(!kitRole) {
-    kitRole = message.guild.createRole({
+    kitRole = guild.createRole({
           name: roleName,
           color: "#000000",
           permissions:[]
       }).then(() => {
-        message.guild.members.get(user.id).addRole(kitRole);
+        guild.members.get(user.id).addRole(kitRole);
       });
   } else {
-    message.guild.members.get(user.id).addRole(kitRole);
+    guild.members.get(user.id).addRole(kitRole);
   }
 
+}
+
+function checkForNewReactions(user){
+  
+  bot.guilds.get("692395141427757067").channels.get("696452173604585562").messages.get("696452274309824582").reactions.forEach(reaction => {
+    reaction.users.forEach(user => {
+      switch(reaction.name){
+        case("rifle"):{
+          addRoleAndCreateIfNotExists(user, "Rifle");
+          break;
+        }
+        case("shotgun"):{
+          addRoleAndCreateIfNotExists(user, "Shotgun");
+          break;
+        }
+        case("machine_gun"):{
+          addRoleAndCreateIfNotExists(user, "Machine Gun");
+          break;
+        }
+        case("sniper"):{
+          addRoleAndCreateIfNotExists(user, "Sniper");
+          break;
+        }
+        default:{
+          reaction.remove;
+        }
+      }
+    })
+  })
+  
+  bot.guilds.get("692395141427757067").channels.get("696452173604585562").messages.get("696453293227900978").reactions.forEach(reaction => {
+    reaction.users.forEach(user => {
+      switch(reaction.name){
+        case("newspaper"):{
+          addRoleAndCreateIfNotExists(user, "General Updates");
+          break;
+        }
+        case("man_office_worker"):{
+          addRoleAndCreateIfNotExists(user, "Staff Updates");
+          break;
+        }
+        case("video_game"):{
+          addRoleAndCreateIfNotExists(user, "New Matches");
+          break;
+        }
+        case("game_die"):{
+          addRoleAndCreateIfNotExists(user, "Match Results");
+          break;
+        }
+        case("timer"):{
+          addRoleAndCreateIfNotExists(user, "Event Notifications");
+          break;
+        }
+        default:{
+          reaction.remove;
+        }
+      }
+    })
+  })
+  
 }
  
 bot.login(process.env.TOKEN);
