@@ -44,6 +44,8 @@ let disabledChannels = ["542812804374069258",
 module.exports.reload = false;
  
 module.exports.bot = bot;
+
+checkForNewReactions();
  
 bot.commands = new Discord.Collection();  
  fs.readdir('./commands/', (err, files) => {
