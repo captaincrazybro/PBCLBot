@@ -26,6 +26,8 @@ const _NoticeEmbed = require("./util/Constructors/_NoticeEmbed")
 const _Blacklist = require("./util/Constructors/_Blacklist");
 require("dotenv").config();
 
+module.exports.rankedReactionsMap = new Map();
+
 module.exports.blAddMap = new Map();
  
 let disabledChannels = ["542812804374069258",
@@ -83,6 +85,79 @@ bot.on('error', e => {
 bot.on("ready", async () => {
     console.log(`${bot.user.username} is online!`);
     bot.user.setPresence({ game: { name: "Super Paintball" } });
+});
+
+bot.on("messageReactionAdd", async (reaction, user) => {
+  if(this.rankedReactionsMap.has(reaction.message.id)){
+
+    let obj = this.rankedReactionsMap.get(reaction.message.id);
+
+    if(reaction.emoji.name == "⬅"){
+      if(user.id != bot.user.id){ 
+        reaction.remove(user);
+
+        let playersSorted = _Player.getPlayerObj().filter(val => val.rating[obj.kit] != null);
+
+        playersSorted = playersSorted.sort((a, b) => { return b.rating[obj.kit] - a.rating[obj.kit] });
+
+        if(obj.page != 0){
+
+          this.rankedReactionsMap.set(reaction.message.id, {kit: obj.kit, page: obj.page - 1});
+
+          var rankings = "";
+    
+          let theTry = this.rankedReactionsMap.get(reaction.message.id).page * 10 + 9;
+          let i = this.rankedReactionsMap.get(reaction.message.id).page * 10;
+
+          while(i < theTry && i < playersSorted.length){
+              let val = playersSorted[i];
+              rankings += `${i + 1}. ${val.name}: ${val.rating[obj.kit]}\n`
+              i++;
+          }
+
+          let embed = new Discord.RichEmbed()
+            .setColor("BLUE")
+            .setTitle("Rankings - Page " + (this.rankedReactionsMap.get(reaction.message.id).page + 1))
+            .setDescription(rankings);
+
+          reaction.message.edit(embed);
+
+        }
+      }
+    } else if(reaction.emoji.name = "➡"){
+      if(user.id != bot.user.id) {
+        reaction.remove(user);
+
+        let playersSorted = _Player.getPlayerObj().filter(val => val.rating[obj.kit] != null);
+
+        playersSorted = playersSorted.sort((a, b) => { return b.rating[obj.kit] - a.rating[obj.kit] });
+
+        if(playersSorted.length >= obj.page * 10 + 9){
+          
+          this.rankedReactionsMap.set(reaction.message.id, {kit: obj.kit, page: obj.page + 1});
+
+          var rankings = "";
+      
+          let theTry = this.rankedReactionsMap.get(reaction.message.id).page * 10 + 9;
+          let i = this.rankedReactionsMap.get(reaction.message.id).page * 10;
+
+          while(i < theTry && i < playersSorted.length){
+              let val = playersSorted[i];
+              rankings += `${i + 1}. ${val.name}: ${val.rating[obj.kit]}\n`
+              i++;
+          }
+
+          let embed = new Discord.RichEmbed()
+            .setColor("BLUE")
+            .setTitle("Rankings - Page " + (this.rankedReactionsMap.get(reaction.message.id).page + 1))
+            .setDescription(rankings);
+
+          reaction.message.edit(embed);
+
+        }
+      }
+    }
+  }
 });
  
 setInterval(function(){
@@ -435,6 +510,8 @@ function addRoleAndCreateIfNotExists(user, roleName){
 
   let kitRole = message.guild.roles.find('name', roleName);
 
+  if(user.roles.get(kitRole.id)) return;
+
   if(!kitRole) {
     kitRole = message.guild.createRole({
           name: roleName,
@@ -450,3 +527,33 @@ function addRoleAndCreateIfNotExists(user, roleName){
 }
  
 bot.login(process.env.TOKEN);
+
+/*function checkMessageReactions(){
+
+  bot.guilds.get("692395141427757067").channels.filter(channel => channel.type == 'test').get("696452173604585562").messages.get("696452274309824582").reactions.forEach(reaction => {
+    reaction.users.forEach(user => {
+        switch(reaction.name){
+          case("rifle"):{
+            addRoleAndCreateIfNotExists(user, "Rifle");
+            break;
+          }
+          case("shotgun"):{
+            addRoleAndCreateIfNotExists(user, "Shotgun");
+            break;
+          }
+          case("machine_gun"):{
+            addRoleAndCreateIfNotExists(user, "Machine Gun");
+            break;
+          }
+          case("sniper"):{
+            addRoleAndCreateIfNotExists(user, "Sniper");
+            break;
+          }
+          default:{
+            
+          }
+        }
+    })
+  });
+
+}*/

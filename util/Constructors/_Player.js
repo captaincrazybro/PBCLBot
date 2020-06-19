@@ -21,6 +21,8 @@ module.exports = class _Player {
         this.team = val.team;
         this.name = val.name;
         this.rank2 = val.rank2;
+        if(val.rating == null) this.rating = {Shotgun: null, Rifle: null, Machinegun: null};
+        else this.rating = val.rating
 
     }
 
@@ -95,6 +97,35 @@ module.exports = class _Player {
         return this;
     }
 
+    setRating(rating, kit){
+        let index = players.findIndex(val => val.uuid == this.uuid);
+        if(!players[index].rating) players[index].rating = {};
+        players[index].rating[kit] = rating;
+        fs.writeFile('./storage/players.json', JSON.stringify(players), (err) => {
+            if(err) console.log(err);
+        })
+        this.rating[kit] = rating;
+        this.val.rating[kit] = rating;
+    }
+
+    addWin(theirRating, kit){
+        if(this.rating[kit] == null) this.rating[kit] = 1000;
+        this.setRating(this.getRating(this.rating[kit], 1, this.getExpectedScore(this.rating[kit], theirRating)), kit);
+    }
+
+    addLoss(theirRating, kit){
+        if(this.rating[kit] == null) this.rating[kit] = 1000;
+        this.setRating(this.getRating(this.rating[kit], 0, this.getExpectedScore(this.rating[kit], theirRating)), kit);
+    }
+
+    getExpectedScore(yourRating, theirRating){
+        return 1/(1 + Math.pow(10, (theirRating - yourRating)/400));
+    }
+
+    getRating(oldRating, score, expectedScore){
+        return Math.round(oldRating + 32 * (score - expectedScore));
+    }
+
     /**
      * @returns {_Player}
      */
@@ -130,7 +161,7 @@ module.exports = class _Player {
      */
 
     static addPlayer(name, uuid){
-        let json = {"name": name, "uuid": uuid, "rank": "Member", team: "None", rank2: "None"}
+        let json = {"name": name, "uuid": uuid, "rank": "Member", team: "None", rank2: "None", rating: {"Rifle": null, "Shotgun": null, "Machinegun": null}}
         players.push(json);
         fs.writeFile('./storage/players.json', JSON.stringify(players), (err) => {
             if(err) console.log(err);

@@ -8,6 +8,7 @@ const _Role = require('../../util/Constructors/_Role.js')
 const Discord = require('discord.js');
 const _Team = require('../../util/Constructors/_Team');
 const MySQL = require('../../MySQL');
+const userTeams = require('../../storage/userteams.json');
 
 module.exports.run = async(bot,message,args,cmd) => {
 
@@ -20,32 +21,37 @@ module.exports.run = async(bot,message,args,cmd) => {
     if(!user) return new _NoticeEmbed(Colors.ERROR, "Invalid role or user - Specify a valid role or user (mention or id)").send(message.channel);
     
     let conn = MySQL.getConnection();
-
-    conn.query("SELECT * FROM pbcl WHERE userId = ?", [user.id], (err, result) => {
-        if(err) return console.log(err);
-        if(require.length > 0){
-            if(result[0].team == "None") return new _NoticeEmbed(Colors.ERROR, "This user does not have a team").send(message.channel);
-            let teamRole = message.guild.roles.find('name', `${result[0].team}`);
-            if(teamRole && message.guild.members.get(user.id).roles.find('id', teamRole.id)){
-                message.guild.members.get(user.id).removeRole(teamRole);
-            }
-            conn.query("UPDATE pbcl SET team = ? WHERE userId = ?", ["None", user.id], err => {
-                if(err) console.log(err);
-            })
-        } else {
-            conn.query("INSERT INTO pbcl (userId, team, role) VALUES (?, ?, ?)", [user.id, "None", "Member"], err => {
-                if(err) console.log(err);
-            });
-            return new _NoticeEmbed(Colors.ERROR, "This user does not have a team").send(message.channel);
+    
+    if(getUser(user.id) == null){
+        return new _NoticeEmbed(Colors.ERROR, "This user does not have a team").send(message.channel);
+    } else {
+        let teamRole = message.guild.roles.find('name', `${result[0].team}`);
+        if(teamRole && message.guild.members.get(user.id).roles.find('id', teamRole.id)){
+            message.guild.members.get(user.id).removeRole(teamRole);
         }
-        let embed = new Discord.RichEmbed()
-            .setColor(Colors.SUCCESS)
-            .setDescription(`Successfully removed <@${user.id}>'s team`)
+        delete userTeams[getUserIndex(user.id)];
+    }
 
-        message.channel.send(embed);
-    });
+    let embed = new Discord.RichEmbed()
+        .setColor(Colors.SUCCESS)
+        .setDescription(`Successfully removed <@${user.id}>'s team`)
+
+    message.channel.send(embed);
 
 }
+
+function getUser(id){
+    let index = userTeams.findIndex(val => val.id == id);
+    if(!index) return null;
+    else return userTeams[index];
+}
+
+function getUserIndex(id){
+    let index = userTeams.findIndex(val => val.id == id);
+    if(!index) return null;
+    else return index;
+}
+
 
 module.exports.help = {
     name: "removeuserteam",

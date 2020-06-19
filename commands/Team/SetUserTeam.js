@@ -8,6 +8,7 @@ const _Role = require('../../util/Constructors/_Role.js')
 const Discord = require('discord.js');
 const _Team = require('../../util/Constructors/_Team');
 const MySQL = require('../../MySQL');
+const userTeams = require('../../storage/userteams.json');
 
 module.exports.run = async(bot,message,args,cmd) => {
 
@@ -43,21 +44,18 @@ module.exports.run = async(bot,message,args,cmd) => {
 
     let conn = MySQL.getConnection();
 
-    conn.query("SELECT * FROM pbcl WHERE userId = ?", [user.id], (err, result) => {
-        if(err) return console.log(err);
-        if(require.length > 0){
-            if(message.guild.members.get(user.id).roles.find('id', teamRole.id)){
-                message.guild.members.get(user.id).removeRole(teamRole);
-            }
-            conn.query("UPDATE pbcl SET team = ? WHERE userId = ?", [team.name, user.id], err => {
-                if(err) console.log(err);
-            })
-        } else {
-            conn.query("INSERT INTO pbcl (userId, team, role) VALUES (?, ?, ?)", [user.id, team.name, "Member"], err => {
-                if(err) console.log(err);
-            });
+    if(getUser(user.id) == null){
+        let obj = {
+            userId: user.id,
+            team: team.name,
+            role: "Member"
         }
-    });
+        userTeams.push(obj);
+    } else {
+        let obj = getUser(user.id);
+        obj.team = team.name;
+        userTeams[getUserIndex(user.id)] = obj;
+    }    
 
     let embed = new Discord.RichEmbed()
         .setColor(Colors.SUCCESS)
@@ -65,6 +63,18 @@ module.exports.run = async(bot,message,args,cmd) => {
 
     message.channel.send(embed);
 
+}
+
+function getUser(id){
+    let index = userTeams.findIndex(val => val.id == id);
+    if(!index) return null;
+    else return userTeams[index];
+}
+
+function getUserIndex(id){
+    let index = userTeams.findIndex(val => val.id == id);
+    if(!index) return null;
+    else return index;
 }
 
 module.exports.help = {

@@ -36,6 +36,8 @@ module.exports.run = async (bot,message,args,cmd) => {
             .addField("Team", player.team)
             .addField("Rank", ranks)
             .addField("UUID", val.id)
+            .addField("Rifle Rating", player.rating["Rifle"])
+            .addField("Shotgun Rating", player.rating["Shotgun"])
             .setThumbnail(`http://minotar.net/helm/${val.name}/64.png`)
             
         if(blacklist != null) embed.addField("Blacklist Status", "true");
