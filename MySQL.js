@@ -20,3 +20,8 @@ module.exports = class MySQL {
     }
 
 }
+
+function test(varToStore){
+  const test2 = varToStore;
+}
+

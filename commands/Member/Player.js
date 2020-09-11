@@ -36,9 +36,13 @@ module.exports.run = async (bot,message,args,cmd) => {
             .addField("Team", player.team)
             .addField("Rank", ranks)
             .addField("UUID", val.id)
-            .addField("Rifle Rating", player.rating["Rifle"])
-            .addField("Shotgun Rating", player.rating["Shotgun"])
             .setThumbnail(`http://minotar.net/helm/${val.name}/64.png`)
+            if(player.rating["Rifle"] == null) embed.addField("Rifle Rating", "None");
+            else embed.addField("Rifle Rating", player.rating["Rifle"])
+            if(player.rating["Shotgun"] == null) embed.addField("Shotgun Rating", "None");
+            else embed.addField("Shotgun Rating", player.rating["Shotgun"])
+            if(player.rating["Machinegun"] == null) embed.addField("Machinegun Rating", "None");
+            else embed.addField("Machinegun Rating", player.rating["Machinegun"])
             
         if(blacklist != null) embed.addField("Blacklist Status", "true");
         else embed.addField("Blacklist Status", "false");

@@ -1,14 +1,3 @@
-/*var express = require('express');
-var app = express();
-
-app.get('/', function(req, res) {
-  res.render("../views/index.html");
-});
-
-app.listen(3000, function() {
-  console.log('Example app listening on port 3000!');
-});*/
-
 const settings = require("./settings.json");
 const Discord = require("discord.js");
 const client = new Discord.Client();
@@ -24,10 +13,13 @@ const _Player = require("./util/Constructors/_Player.js");
 const filter = require("./storage/filter.json");
 const _NoticeEmbed = require("./util/Constructors/_NoticeEmbed")
 const _Blacklist = require("./util/Constructors/_Blacklist");
+const _Match = require("./util/Constructors/_Match");
+const nodeSchedule = require('node-schedule');
 require("dotenv").config();
 
 module.exports.rankedReactionsMap = new Map();
 
+module.exports.matchOutcomeMap = new Map();
 module.exports.blAddMap = new Map();
  
 let disabledChannels = ["542812804374069258",
@@ -85,6 +77,21 @@ bot.on('error', e => {
 bot.on("ready", async () => {
     console.log(`${bot.user.username} is online!`);
     bot.user.setPresence({ game: { name: "Super Paintball" } });
+
+    let minutes = (date.getMinutes() + 1) + 60 * date.getHours() * date.getDate() * date.getMonth() * (date.getFullYear() - 2000);
+
+    _Match.getMatchesObj().forEach(val => {
+      if(val.minutes < minutes){
+        let date = new Date(val.date);
+        var rules = new nodeSchedule.RecurrenceRule();
+        rules.date = date.getDate();
+        rules.hour = date.getHours();
+        rules.minute = date.getMinutes();
+        rules.month = date.getMonth();
+        rules.year = date.getFullYear();
+      }
+    })
+
 });
 
 bot.on("messageReactionAdd", async (reaction, user) => {
@@ -189,7 +196,8 @@ bot.on("message", async message => {
   levelUp(user, message);
  
   doBlAdd(message);
- 
+  doMatchOutcome(message);
+
   //_MinecraftAPI.getUuid("Cqptain").then(val => _MinecraftAPI.getName(val).then(val2 => console.log(val2)))
  
   //xp.run(bot,message,args,cmd,fs);
@@ -275,7 +283,7 @@ function violatesFilter(message){
   return outcome;
  
 }
- 
+
 function levelUp(user, message){
  
   let originalXp = user.xp;
@@ -314,6 +322,232 @@ function levelUp(user, message){
     message.channel.send(embed);
   }
  
+}
+
+function doMatchOutcome(message){
+
+  if(module.exports.matchOutcomeMap.has(message.author.id)){
+
+    if(message.content.toLowerCase() == "exit"){
+      module.exports.matchOutcomeMap.delete(message.author.id);
+      return new _NoticeEmbed(Colors.SUCCESS, "You have successfully exited this set match outcome wizard").send(message.channel);
+    }
+
+    let obj = module.exports.matchOutcomeMap.get(message.author.id);
+
+    if(message.content.toLowerCase() == "back"){
+      if(obj.step == 0) return new _NoticeEmbed(Colors.ERROR, "You cannot go back a step because you are on the first step").send(message.channel);
+      obj.step--;
+      module.exports.matchOutcomeMap.set(message.author.id, obj);
+      return new _NoticeEmbed(Colors.SUCCESS, "You have successfully gone back 1 step to step" + obj.step).send(message.channel);
+    }
+
+    switch(obj.step){
+      case(0):{
+
+        if(isNaN(message.content)) return new _NoticeEmbed(Colors.ERROR, "Invalid score - Score needs to be a number").send(message.channel);
+
+        let score1 = parseInt(message.content);
+
+        obj.step++;
+        obj.score1 = score1;
+
+        module.exports.matchOutcomeMap.set(message.author.id, obj);
+
+        new _NoticeEmbed(Colors.SUCCESS, `You have successfully set ${obj.team1}'s score to ${score1}!`).send(message.channel);
+        new _NoticeEmbed(Colors.INFO, `\nPlease specify ${obj.team2}'s score`).send(message.channel);
+
+        break;
+      }
+      case(1):{
+
+        if(isNaN(message.content)) return new _NoticeEmbed(Colors.ERROR, "Invalid score - Score needs to be a number").send(message.channel);
+
+        let score2 = parseInt(message.content);
+
+        obj.step++;
+        obj.score2 = score2;
+
+        module.exports.matchOutcomeMap.set(message.author.id, obj);
+
+        new _NoticeEmbed(Colors.SUCCESS, `You have successfully set ${obj.team2}'s score to ${score2}!`).send(message.channel);
+        new _NoticeEmbed(Colors.INFO, `\nPlease specify the players involved in the match on ${obj.team1} and include their stats (format: <player> <kills> <deaths>). Make sure that you specify them spearately.`).send(message.channel);
+        new _NoticeEmbed(Colors.INFO, `\nAt any time you can enter reset to start from scratch if you've made a mistake. \nWhen you are done entering the player in, enter next to go to the next step`).send(message.channel);
+        
+        break;
+      }
+      case(2):{
+
+        let request = require(`request`);
+
+        var url;
+
+        if (message.attachments.first()) { //checks if an attachment is sent
+          if (message.attachments.first().url.substr(message.attachments.first().url.length - 6, message.attachments.first().url.length) === "log.js") {
+            url = message.attachments.first().url;
+          }
+        } else if(message.content.endsWith(".txt")) {
+          url = message.content.split(" ")[message.content.split(" ").length - 1];
+        } else {
+          return new _NoticeEmbed(Colors.WARN, "Please provide a log of the match (either upload it directly or provide a link to the exact file)");
+        }
+
+        download(message.attachments.first().url);
+
+        fs.readFile('./log.txt', (err, data) => {
+          if(err) console.log(err);
+          else {
+            data.forEach(val => {
+              if(val.contains(" was painted by ")){
+                let players = val.split(" was painted by ");
+                let painted = players[0].split(" ")[players[0].split(" ").length - 1];
+                let painter = players[0].split(" ")[0];
+                let player1 = _Player.getPlayer(painted);
+                if(player1 == null) return new _NoticeEmbed(Colors.ERROR, painted + " is not on any team");
+                else if(player1.team != obj.team1 && player1.team != obj.team2) return new _NoticeEmbed(Colors.ERROR, painted + " is not on any team");
+                else {
+                  player1.addKills(1);
+                }
+                let player2 = _Player.getPlayer(painter);
+                if(player2 == null) return new _NoticeEmbed(Colors.ERROR, painter + " is not on any team");
+                else if(player2.team != obj.team1 && player2.team != obj.team2) return new _NoticeEmbed(Colors.ERROR, painter + " is not on any team");
+                else {
+                  player2.addKills(1);
+                }
+              }
+            })
+          }
+        })
+
+        function download(url) {
+            let file = fs.createWriteStream('log.txt');
+
+            var r = request(url).pipe(file);
+            request.get(url)
+                .on('error', console.error)
+                .pipe(fs.createWriteStream('log.txt'))
+            r.on('finish', function () {
+                file.close()
+            });
+            file.on('finish', function () {
+                file.close()
+            });
+        }
+
+      }
+      /*case(2):{
+
+        if(message.content == "reset"){
+          if(module.exports.matchOutcomeMap.size == 0) return new _NoticeEmbed(Colors.ERROR, "You have not specified any players yet").send(message.channel);
+          obj.team1Players = [];
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully reset the player involved in the match on ${obj.team1}.`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nPlease specify the players involved in the match on ${obj.team1}.`).send(message.channel);
+          break;
+        }
+
+        if(message.content == "next"){
+          if(module.exports.matchOutcomeMap.size == 0) return new _NoticeEmbed(Colors.ERROR, "You have not specify any players yet").send(message.channel);
+          obj.step++;
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully set the player involved in the match for team ${obj.team1}!`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nPlease specify the players involved in the match on ${obj.team2} and include their stats (format: <player> <kills> <deaths>). Make sure that you specify them spearately.`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nAt any time you can enter reset to start from scratch if you've made a mistake. \nWhen you are done entering the player in, enter next to go to the next step`).send(message.channel);
+          break;
+        }
+
+        let args = message.content.split(" ");
+
+        let playerName = args[0];
+
+        _MinecraftAPI.getUuid(playerName).then(val => {
+
+          if(val == null) return new _NoticeEmbed(Colors.ERROR, "Invalid Player - This player does not exist").send(message.channel);
+
+          if(val == false || !_Player.getPlayer(val.name)) return new _NoticeEmbed(Colors.ERROR, "Invalid Player - This player does not exist").send(message.channel);
+
+          if(args.length == 1) return new _NoticeEmbed(Colors.WARN, "Please specify this player's kills").send(message.channel);
+
+          if(isNaN(args[1])) return new _NoticeEmbed(Colors.ERROR, "Invalid kills - Kills must be a number").send(message.channel);
+
+          if(args.length == 2) return new _NoticeEmbed(Colors.WARN, "Please specify this player's deaths")
+
+          if(isNaN(args[2])) return new _NoticeEmbed(Colors.ERROR, "Invalid deaths - Deaths must be a number").send(message.channel);
+
+          // TODO: Update the player stats here when Jack makes the api for it
+
+          obj.team1Players.push({uuid: val.id, kills: parseInt(args[1]), deaths: parseInt(args[2])});
+
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully added ${val.name} with kills ${args[1]} and deaths ${args[2]} to the players involved in the match for team ${obj.team2}!`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nAt any time you can enter reset to start from scratch if you've made a mistake. \nWhen you are done entering the player in, enter next to go to the next step`).send(message.channel);
+
+        })
+
+        break;
+
+      }
+      case(3):{
+
+        if(message.content == "reset"){
+          if(module.exports.matchOutcomeMap.size == 0) return new _NoticeEmbed(Colors.ERROR, "You have not specified any players yet").send(message.channel);
+          obj.team1Players = [];
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully reset the player involved in the match on ${obj.team2}.`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nPlease specify the players involved in the match on ${obj.team2}.`).send(message.channel);
+          break;
+        }
+
+        if(message.content == "next"){
+          if(module.exports.matchOutcomeMap.size == 0) return new _NoticeEmbed(Colors.ERROR, "You have not specify any players yet").send(message.channel);
+          obj.step++;
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+          let match = _Match.getMatchById(obj.id);
+          match.setScore(obj.score1, obj.score2);
+          match.setPlayers(obj.team1Players, obj.team2Players);
+          module.exports.matchOutcomeMap.delete(message.author.id);
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully set the player involved in the match for team ${obj.team2}!`).send(message.channel);
+          new _NoticeEmbed(Colors.SUCCESS, `\nYou have now finished the set match outcome wizard for match ${obj.id}!`);
+          break;
+        }
+
+        let args = message.content.split(" ");
+
+        let playerName = args[0];
+
+        _MinecraftAPI.getUuid(playerName).then(val => {
+
+          if(val == null) return new _NoticeEmbed(Colors.ERROR, "Invalid Player - This player does not exist").send(message.channel);
+
+          if(val == false || !_Player.getPlayer(val.name)) return new _NoticeEmbed(Colors.ERROR, "Invalid Player - This player does not exist").send(message.channel);
+
+          if(args.length == 1) return new _NoticeEmbed(Colors.WARN, "Please specify this player's kills").send(message.channel);
+
+          if(isNaN(args[1])) return new _NoticeEmbed(Colors.ERROR, "Invalid kills - Kills must be a number").send(message.channel);
+
+          if(args.length == 2) return new _NoticeEmbed(Colors.WARN, "Please specify this player's deaths")
+
+          if(isNaN(args[2])) return new _NoticeEmbed(Colors.ERROR, "Invalid deaths - Deaths must be a number").send(message.channel);
+
+          // TODO: Update the player stats here when Jack makes the api for it
+
+          obj.team2Players.push({uuid: val.id, kills: parseInt(args[1]), deaths: parseInt(args[2])});
+
+          module.exports.matchOutcomeMap.set(message.author.id, obj);
+
+          new _NoticeEmbed(Colors.SUCCESS, `You have successfully added ${val.name} with kills ${args[1]} and deaths ${args[2]} to the players involved in the match for team ${obj.team2}!`).send(message.channel);
+          new _NoticeEmbed(Colors.INFO, `\nAt any time you can enter reset to start from scratch if you've made a mistake. \nWhen you are done entering the player in, enter next to go to the next step`).send(message.channel);
+
+        })
+
+        break;
+
+      }*/
+    }
+
+  }
+
 }
  
 function doBlAdd(message){

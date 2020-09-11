@@ -1,7 +1,8 @@
 var players = require("../../storage/players.json");
 const fs = require("fs");
 const Discord = require("discord.js")
-const _MinecaftAPI = require("./_MinecraftAPI")
+const _MinecaftAPI = require("../../util/Constructors/_MinecraftAPI")
+const {get} = require('lodash');
 
 module.exports = class _Player {
 
@@ -21,9 +22,23 @@ module.exports = class _Player {
         this.team = val.team;
         this.name = val.name;
         this.rank2 = val.rank2;
+
         if(val.rating == null) this.rating = {Shotgun: null, Rifle: null, Machinegun: null};
         else this.rating = val.rating
 
+        if(val.deaths == undefined) val.deaths = 0;
+        if(val.kill == undefined) val.kills = 0;
+        this.deaths = val.deaths;
+        this.kills = val.kills;
+
+    }
+
+    /**
+     * @returns {Number}
+     */
+
+    getKDR(){
+        return this.kills / this.deaths;
     }
 
     /**
@@ -73,6 +88,80 @@ module.exports = class _Player {
     }
 
     /**
+     * 
+     * @param {Number} deaths 
+     * @returns {_Player}
+     */
+    
+    setKills(kills){
+        let index = players.indexOf(this.val);
+        players[index].kills = kills;
+        fs.writeFile('./storage/players.json', JSON.stringify(player), err => {
+            if(err) console.log(err);
+        })
+        this.kills = kills;
+        this.val.kills = kills;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Number} deaths 
+     * @returns {_Player}
+     */
+    
+    setDeaths(deaths){
+        let index = players.indexOf(this.val);
+        players[index].deaths = deaths;
+        fs.writeFile('./storage/players.json', JSON.stringify(player), err => {
+            if(err) console.log(err);
+        })
+        this.deaths = deaths;
+        this.val.deaths = deaths;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Number} kills 
+     * @returns {_Player}
+     */
+
+    addKills(kills){
+        return this.setKills(this.kills + kills);
+    }
+
+    /**
+     * 
+     * @param {Number} deaths 
+     * @returns {_Player}
+     */
+
+    addDeaths(deaths){
+        return this.setDeaths(this.deaths + deaths);
+    }
+
+    /**
+     * 
+     * @param {Number} kills 
+     * @returns {_Player}
+     */
+
+    removeKills(kills){
+        return this.setKills(this.kills - kills);
+    }
+
+    /**
+     * 
+     * @param {Number} deaths 
+     * @returns {_Player}
+     */
+
+    removeDeaths(deaths){
+        return this.setDeaths(this.deaths - deaths);
+    }
+
+    /**
      * @returns {_Player}
      */
 
@@ -88,6 +177,8 @@ module.exports = class _Player {
 
     setTeam(team){
         let index = players.indexOf(this.val);
+        console.log(index);
+        console.log(players[index]);
         players[index].team = team;
         fs.writeFile('./storage/players.json', JSON.stringify(players), (err) => {
             if(err) console.log(err);
@@ -143,7 +234,6 @@ module.exports = class _Player {
     static exists(name){
         if(players.length > 0) var filtered = players.filter(val => val.name.toLowerCase() == name.toLowerCase());
         else return null;
-        
         return filtered.pop();
     }
     

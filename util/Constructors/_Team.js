@@ -3,6 +3,7 @@ var players = require("../../storage/players.json");
 const fs = require("fs");
 const Discord = require("discord.js")
 const _Player = require('../../util/Constructors/_Player');
+const _Match = require("./_Match");
 
 module.exports = class _Team {
 
@@ -54,6 +55,16 @@ module.exports = class _Team {
         })
         players.filter(val => val.team == this.name).forEach(val => val.team = newName);
         fs.writeFile('./storage/players.json', JSON.stringify(players), (err) => {
+            if(err) console.log(err);
+        })
+        _Match.getMatchesObj().forEach(val => {
+            if(val.team1 == this.name){
+                val.team1 = newName;
+            } else if(val.team2 == this.name){
+                val.team2 = newName;
+            }
+        })
+        fs.writeFile('./storage/matches.json', JSON.stringify(teams), err => {
             if(err) console.log(err);
         })
         this.name = newName;
